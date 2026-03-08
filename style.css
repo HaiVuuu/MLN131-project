@@ -1,0 +1,2 @@
+body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #050505; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
+canvas { box-shadow: 0 0 50px rgba(0,255,200,0.2); border-radius: 10px; cursor: pointer; }
