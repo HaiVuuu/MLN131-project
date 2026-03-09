@@ -3,9 +3,8 @@ import { CONFIG, SETTINGS } from './config.js';
 export class UIManager {
     constructor() { this.floatingTexts = []; }
     reset() { this.floatingTexts = []; }
-
     addFloatingText(text, color, size) { this.floatingTexts.push({ text: text, y: CONFIG.canvasHeight * 0.35, alpha: 1, color: color, size: size }); }
-
+    
     updateFloatingTexts(fpsMultiplier) {
         for(let i=0; i < this.floatingTexts.length; i++) {
             let ft = this.floatingTexts[i]; ft.y -= (2.5 * fpsMultiplier); ft.alpha -= (0.02 * fpsMultiplier);
@@ -22,8 +21,29 @@ export class UIManager {
         }
     }
 
+    // HÀM TRỢ GIÚP VẼ THANH VOLUME
+    drawVolumeBar(ctx, yPos, label, volumeVal) {
+        let cx = CONFIG.canvasWidth / 2;
+        ctx.fillStyle = "white"; ctx.font = "bold 18px Arial"; ctx.textAlign = "center"; 
+        ctx.fillText(label, cx, yPos);
+        
+        // Nút giảm [<]
+        ctx.fillStyle = "#e74c3c"; ctx.beginPath(); ctx.roundRect(cx - 85, yPos + 10, 30, 30, 5); ctx.fill();
+        ctx.fillStyle = "white"; ctx.fillText("-", cx - 70, yPos + 32);
+        
+        // Vẽ 10 nấc vạch
+        let level = Math.round(volumeVal * 10);
+        for(let i=0; i<10; i++) {
+            ctx.fillStyle = i < level ? '#2ecc71' : '#555';
+            ctx.fillRect(cx - 45 + (i * 9), yPos + 15, 6, 20);
+        }
+
+        // Nút tăng [>]
+        ctx.fillStyle = "#3498db"; ctx.beginPath(); ctx.roundRect(cx + 55, yPos + 10, 30, 30, 5); ctx.fill();
+        ctx.fillStyle = "white"; ctx.fillText("+", cx + 70, yPos + 32);
+    }
+
     draw(ctx, state, player) {
-        // VẼ NÚT PAUSE LUÔN HIỆN KHI ĐANG CHƠI
         if (state === 'PLAYING') {
             ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.roundRect(CONFIG.canvasWidth - 50, 60, 40, 40, 8); ctx.fill();
             ctx.fillStyle = 'white'; ctx.fillRect(CONFIG.canvasWidth - 38, 70, 6, 20); ctx.fillRect(CONFIG.canvasWidth - 28, 70, 6, 20);
@@ -42,31 +62,31 @@ export class UIManager {
             ctx.fillStyle = "#3498db"; ctx.beginPath(); ctx.roundRect(CONFIG.canvasWidth/2 - 80, CONFIG.canvasHeight/2 + 60, 160, 50, 25); ctx.fill();
             ctx.fillStyle = "white"; ctx.font = "bold 20px Arial"; ctx.fillText("RÈN LUYỆN LẠI", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 + 92);
         } else if (state === 'PAUSED') {
-            // MENU TẠM DỪNG
             ctx.fillStyle = "rgba(0, 0, 0, 0.8)"; ctx.fillRect(0, 0, CONFIG.canvasWidth, CONFIG.canvasHeight);
             ctx.fillStyle = "white"; ctx.font = "bold 35px Arial"; ctx.textAlign = "center"; ctx.fillText("TẠM DỪNG", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 - 80);
-            
             ctx.fillStyle = "#2ecc71"; ctx.beginPath(); ctx.roundRect(CONFIG.canvasWidth/2 - 90, CONFIG.canvasHeight/2 - 30, 180, 50, 25); ctx.fill();
             ctx.fillStyle = "white"; ctx.font = "bold 20px Arial"; ctx.fillText("TIẾP TỤC", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 + 2);
-            
             ctx.fillStyle = "#95a5a6"; ctx.beginPath(); ctx.roundRect(CONFIG.canvasWidth/2 - 90, CONFIG.canvasHeight/2 + 40, 180, 50, 25); ctx.fill();
             ctx.fillStyle = "white"; ctx.fillText("CÀI ĐẶT", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 + 72);
         } else if (state === 'SETTINGS') {
-            // MENU CÀI ĐẶT
             ctx.fillStyle = "rgba(0, 0, 0, 0.95)"; ctx.fillRect(0, 0, CONFIG.canvasWidth, CONFIG.canvasHeight);
-            ctx.fillStyle = "white"; ctx.font = "bold 35px Arial"; ctx.textAlign = "center"; ctx.fillText("CÀI ĐẶT", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 - 80);
+            ctx.fillStyle = "white"; ctx.font = "bold 32px Arial"; ctx.textAlign = "center"; ctx.fillText("CÀI ĐẶT", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 - 150);
             
-            ctx.font = "20px Arial"; ctx.fillText("Rung Màn Hình:", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 - 20);
-            
-            // Nút Toggle
+            // RUNG MÀN HÌNH
+            ctx.font = "bold 18px Arial"; ctx.fillText("Rung Màn Hình", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 - 100);
             ctx.fillStyle = SETTINGS.screenShake ? '#2ecc71' : '#e74c3c'; 
-            ctx.beginPath(); ctx.roundRect(CONFIG.canvasWidth/2 - 50, CONFIG.canvasHeight/2, 100, 40, 20); ctx.fill();
-            ctx.fillStyle = "white"; ctx.font = "bold 18px Arial"; 
-            ctx.fillText(SETTINGS.screenShake ? "BẬT" : "TẮT", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 + 26);
+            ctx.beginPath(); ctx.roundRect(CONFIG.canvasWidth/2 - 40, CONFIG.canvasHeight/2 - 90, 80, 30, 15); ctx.fill();
+            ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.fillText(SETTINGS.screenShake ? "BẬT" : "TẮT", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 - 70);
 
-            ctx.fillStyle = "#95a5a6"; ctx.beginPath(); ctx.roundRect(CONFIG.canvasWidth/2 - 70, CONFIG.canvasHeight/2 + 80, 140, 45, 22); ctx.fill();
-            ctx.fillStyle = "white"; ctx.fillText("TRỞ LẠI", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 + 108);
+            // THANH ÂM THANH
+            this.drawVolumeBar(ctx, CONFIG.canvasHeight/2 - 30, "Nhạc Nền (BGM)", SETTINGS.bgmVolume);
+            this.drawVolumeBar(ctx, CONFIG.canvasHeight/2 + 50, "Hiệu Ứng (SFX)", SETTINGS.sfxVolume);
+
+            // NÚT TRỞ LẠI
+            ctx.fillStyle = "#95a5a6"; ctx.beginPath(); ctx.roundRect(CONFIG.canvasWidth/2 - 70, CONFIG.canvasHeight/2 + 130, 140, 40, 20); ctx.fill();
+            ctx.fillStyle = "white"; ctx.font = "bold 18px Arial"; ctx.fillText("TRỞ LẠI", CONFIG.canvasWidth/2, CONFIG.canvasHeight/2 + 156);
         } else {
+            // HUD IN-GAME (Giữ nguyên)
             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.beginPath(); ctx.roundRect(10, 10, 220, 35, 8); ctx.roundRect(CONFIG.canvasWidth - 130, 10, 120, 35, 8); ctx.fill();
             ctx.fillStyle = '#f1c40f'; ctx.textAlign = "left"; ctx.font = "bold 18px Arial"; ctx.fillText("Điểm XH: " + Math.max(0, player.score).toLocaleString(), 20, 34);
             ctx.fillStyle = '#3498db'; ctx.textAlign = "right"; ctx.fillText("Level: " + player.phase, CONFIG.canvasWidth - 20, 34);

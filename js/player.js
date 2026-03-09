@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { Utils } from './utils.js';
+import { audio } from './audio.js'; // NHÚNG AUDIO
 
 export class Player {
     constructor() { this.reset(); }
@@ -22,14 +23,14 @@ export class Player {
             this.isJumping = true;
             let speedBonus = (currentSpeed - CONFIG.baseSpeed) * 0.6;
             this.velocityY = CONFIG.jumpVelocity + speedBonus;
+            audio.play('jump', 0.4); // PHÁT TIẾNG NHẢY
         }
     }
 
-    // HÀM MỚI: ĐÁP ĐẤT NHANH (FAST FALL)
     fastFall() {
         if (this.isJumping && !this.isDead) {
-            // Ép vận tốc Y thành số âm cực lớn để ghim thẳng xuống đất
             this.velocityY = -CONFIG.jumpVelocity * 2; 
+            audio.play('fall', 0.6); // PHÁT TIẾNG RƠI NHANH
         }
     }
 
@@ -70,8 +71,7 @@ export class Player {
         ctx.shadowBlur = 0; 
         if (!this.isDead) { 
             let shadowP = Utils.project(CONFIG.lanes[this.lane], 0, this.z); 
-            let shadowAlpha = Math.max(0.1, 0.6 - (this.jumpY / 200));
-            let shadowSize = Math.max(10, 28 - (this.jumpY / 10));
+            let shadowAlpha = Math.max(0.1, 0.6 - (this.jumpY / 200)); let shadowSize = Math.max(10, 28 - (this.jumpY / 10));
             if(shadowP) { ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`; ctx.beginPath(); ctx.ellipse(shadowP.x, shadowP.y + 10*shadowP.scale, shadowSize*shadowP.scale, 10*shadowP.scale, 0, 0, Math.PI*2); ctx.fill(); }
         }
 
@@ -81,41 +81,24 @@ export class Player {
         }
 
         if (this.rushHourTimer > 0 || this.buffs.dash > 0) {
-            let carW = 80 * s; let carH = 50 * s; let carY = py - carH + 10*s;
-            let carColor = this.rushHourTimer > 0 ? '#ff4757' : '#00ffff';
-
-            ctx.fillStyle = '#ffa502';
-            ctx.beginPath(); ctx.arc(p.x - 25*s, carY + carH, (10 + Math.random()*10)*s, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(p.x + 25*s, carY + carH, (10 + Math.random()*10)*s, 0, Math.PI*2); ctx.fill();
+            let carW = 80 * s; let carH = 50 * s; let carY = py - carH + 10*s; let carColor = this.rushHourTimer > 0 ? '#ff4757' : '#00ffff';
+            ctx.fillStyle = '#ffa502'; ctx.beginPath(); ctx.arc(p.x - 25*s, carY + carH, (10 + Math.random()*10)*s, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(p.x + 25*s, carY + carH, (10 + Math.random()*10)*s, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.beginPath(); ctx.arc(p.x, carY + carH + 15*s, (15 + Math.random()*15)*s, 0, Math.PI*2); ctx.fill();
-
             ctx.fillStyle = carColor; ctx.beginPath(); ctx.roundRect(p.x - carW/2, carY, carW, carH, 10*s); ctx.fill();
             ctx.fillStyle = '#2f3640'; ctx.beginPath(); ctx.roundRect(p.x - carW/2 + 10*s, carY - 20*s, carW - 20*s, 25*s, 5*s); ctx.fill();
             ctx.fillStyle = '#7f8fa6'; ctx.fillRect(p.x - carW/2 + 15*s, carY - 15*s, carW - 30*s, 15*s);
-
-            ctx.shadowBlur = 20; ctx.shadowColor = '#ff0000'; ctx.fillStyle = '#ff0000';
-            ctx.fillRect(p.x - carW/2 + 5*s, carY + 10*s, 15*s, 8*s); ctx.fillRect(p.x + carW/2 - 20*s, carY + 10*s, 15*s, 8*s); ctx.shadowBlur = 0;
-
+            ctx.shadowBlur = 20; ctx.shadowColor = '#ff0000'; ctx.fillStyle = '#ff0000'; ctx.fillRect(p.x - carW/2 + 5*s, carY + 10*s, 15*s, 8*s); ctx.fillRect(p.x + carW/2 - 20*s, carY + 10*s, 15*s, 8*s); ctx.shadowBlur = 0;
             ctx.fillStyle = '#111'; ctx.beginPath(); ctx.roundRect(p.x - carW/2 - 5*s, carY + carH - 10*s, 15*s, 20*s, 3*s); ctx.fill(); ctx.beginPath(); ctx.roundRect(p.x + carW/2 - 10*s, carY + carH - 10*s, 15*s, 20*s, 3*s); ctx.fill();
         } else {
-            let bodyGrad = ctx.createLinearGradient(p.x - bW/2, bY, p.x + bW/2, bY + bH); 
-            bodyGrad.addColorStop(0, this.color); bodyGrad.addColorStop(1, Utils.lerpColor(this.color, '#000000', 0.4)); 
-
+            let bodyGrad = ctx.createLinearGradient(p.x - bW/2, bY, p.x + bW/2, bY + bH); bodyGrad.addColorStop(0, this.color); bodyGrad.addColorStop(1, Utils.lerpColor(this.color, '#000000', 0.4)); 
             ctx.strokeStyle = '#111'; ctx.lineWidth = 12 * s; ctx.lineCap = 'round';
-            ctx.beginPath(); ctx.moveTo(p.x - 5*s, py - 30*s); ctx.lineTo(p.x - 5*s - legSwing, py); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(p.x + 5*s, py - 30*s); ctx.lineTo(p.x + 5*s + legSwing, py); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(p.x - 5*s, py - 30*s); ctx.lineTo(p.x - 5*s - legSwing, py); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x + 5*s, py - 30*s); ctx.lineTo(p.x + 5*s + legSwing, py); ctx.stroke();
             ctx.strokeStyle = this.headColor; ctx.lineWidth = 10 * s;
-            ctx.beginPath(); ctx.moveTo(p.x - 15*s, py - 70*s); ctx.lineTo(p.x - 20*s - armSwing, py - 40*s); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(p.x + 15*s, py - 70*s); ctx.lineTo(p.x + 20*s + armSwing, py - 40*s); ctx.stroke();
-
+            ctx.beginPath(); ctx.moveTo(p.x - 15*s, py - 70*s); ctx.lineTo(p.x - 20*s - armSwing, py - 40*s); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x + 15*s, py - 70*s); ctx.lineTo(p.x + 20*s + armSwing, py - 40*s); ctx.stroke();
             if (this.phase <= 2) { ctx.fillStyle = '#8b4513'; ctx.beginPath(); ctx.roundRect(p.x - bW/2 - 5*s, bY + 10*s, bW + 10*s, bH - 15*s, 5*s); ctx.fill(); }
-
             ctx.fillStyle = bodyGrad; ctx.beginPath(); ctx.roundRect(p.x - bW/2, bY, bW, bH, 8*s); ctx.fill();
-            ctx.fillStyle = this.headColor; ctx.beginPath(); ctx.arc(p.x, py - 95*s, 18*s, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.arc(p.x, py - 100*s, 18*s, 0, Math.PI, true); ctx.fill();
-
-            if (this.phase === 3 || this.phase === 4) { ctx.fillStyle = '#27ae60'; ctx.fillRect(p.x - 18*s, py - 105*s, 36*s, 6*s); } 
-            else if (this.phase === 5) { ctx.shadowBlur = 10; ctx.shadowColor = '#00ffff'; ctx.fillStyle = '#00ffff'; ctx.fillRect(p.x - 15*s, py - 98*s, 30*s, 8*s); ctx.shadowBlur = 0; }
+            ctx.fillStyle = this.headColor; ctx.beginPath(); ctx.arc(p.x, py - 95*s, 18*s, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.arc(p.x, py - 100*s, 18*s, 0, Math.PI, true); ctx.fill();
+            if (this.phase === 3 || this.phase === 4) { ctx.fillStyle = '#27ae60'; ctx.fillRect(p.x - 18*s, py - 105*s, 36*s, 6*s); } else if (this.phase === 5) { ctx.shadowBlur = 10; ctx.shadowColor = '#00ffff'; ctx.fillStyle = '#00ffff'; ctx.fillRect(p.x - 15*s, py - 98*s, 30*s, 8*s); ctx.shadowBlur = 0; }
         }
         ctx.restore();
     }

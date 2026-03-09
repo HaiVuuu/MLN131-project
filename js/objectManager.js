@@ -1,5 +1,6 @@
 import { CONFIG, GAME_DATA } from './config.js';
 import { Utils } from './utils.js';
+import { audio } from './audio.js'; // NHÚNG AUDIO
 
 export class ObjectManager {
     constructor() { this.reset(); }
@@ -86,7 +87,6 @@ export class ObjectManager {
         else this.pushObject({ type: 'gate', lane: lane, z: 4000, value: -gateVal, text: "-" + gateVal, sub: GAME_DATA.gateContent[phase].bad, color: '#e74c3c', isGood: false }, player);
     }
 
-    // ĐÃ THÊM THAM SỐ `engine` VÀO HÀM UPDATE ĐỂ GỌI RUNG
     update(fpsMultiplier, player, ui, frameCount, speed, engine) {
         let isRush = player.rushHourTimer > 0; let rushMult = isRush ? 3 : 1; 
         let finalSpeed = speed * Math.max(player.buffs.dash > 0 ? 1.8 : 1, isRush ? 2.2 : 1);
@@ -117,6 +117,7 @@ export class ObjectManager {
                 if (obj.z > 20 && obj.z < 80 && obj.lanes.includes(player.lane)) {
                     if (player.jumpY < 40 && player.buffs.dash <= 0 && !isRush) {
                         player.isDead = true; ui.addFloatingText("SỤP HỐ GÀ!", '#e74c3c', 35);
+                        audio.play('hit', 0.8); // PHÁT TIẾNG SỤP HỐ
                     }
                 }
                 if (obj.z < 10) { this.objects.splice(i, 1); i--; }
@@ -141,34 +142,57 @@ export class ObjectManager {
 
                 if ((player.buffs.dash > 0 || isRush) && (obj.type === 'wall' || obj.type === 'trap' || obj.type === 'moving_trap' || obj.type === 'fakenews' || (obj.type === 'gate' && !obj.isGood) || (obj.type === 'gate_special' && !obj.isMul) || obj.type === 'blinking_gate')) {
                     player.score += 150; ui.addFloatingText("PHÁ VỠ!", isRush ? '#ff4757' : '#00ffff', 30); 
-                    engine.triggerShake(10, 8); // RUNG NHẸ KHI ĐÂM NÁT CHƯỚNG NGẠI VẬT
+                    engine.triggerShake(10, 8); 
+                    audio.play('smash', 0.6); // PHÁT TIẾNG VỠ NÁT
                     this.objects.splice(i, 1); i--; continue;
                 }
 
                 if (obj.type === 'letter') {
                     player.collectedLetters++; ui.addFloatingText(obj.letter, '#f1c40f', 40);
+                    audio.play('letter', 0.7); // PHÁT TIẾNG NHẶT CHỮ
                     if (player.collectedLetters >= player.currentWord.length) {
                         player.rushHourTimer = player.currentWord.length * 2000; ui.addFloatingText("BÙNG CHÁY!", '#ff4757', 45); player.pickNextWord();
-                        engine.triggerShake(20, 12); // RUNG MẠNH KHI VÀO RUSH HOUR
+                        engine.triggerShake(20, 12); 
+                        audio.play('rush', 0.9); // PHÁT TIẾNG KÍCH HOẠT RUSH HOUR
                         this.objects.forEach(o => { if (o.type !== 'decor' && o.type !== 'buff' && o.type !== 'letter' && o.type !== 'crack') this.transformToGold(o, player); });
                     }
                 }
                 else if (obj.type === 'gate') {
-                    if (obj.isGood) { let gained = (player.buffs.x2 > 0 ? obj.value * 2 : obj.value) * rushMult; player.score += gained; ui.addFloatingText("+" + gained, '#2ecc71', 28); } 
-                    else { if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 28); engine.triggerShake(5, 5); } else { player.score += obj.value; ui.addFloatingText(obj.value, '#e74c3c', 28); engine.triggerShake(15, 10); } }
+                    if (obj.isGood) { 
+                        let gained = (player.buffs.x2 > 0 ? obj.value * 2 : obj.value) * rushMult; player.score += gained; ui.addFloatingText("+" + gained, '#2ecc71', 28); 
+                        audio.play('coin', 0.4); // PHÁT TIẾNG CỘNG ĐIỂM
+                    } else { 
+                        if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 28); engine.triggerShake(5, 5); audio.play('buff', 0.5); } 
+                        else { player.score += obj.value; ui.addFloatingText(obj.value, '#e74c3c', 28); engine.triggerShake(15, 10); audio.play('error', 0.6); } 
+                    }
                 } else if (obj.type === 'blinking_gate') {
                     let isGoodNow = Math.floor(obj.timer / 25) % 2 === 0;
-                    if (isGoodNow) { let gained = (player.buffs.x2 > 0 ? obj.val * 2 : obj.val) * rushMult; player.score += gained; ui.addFloatingText("+" + gained + " NẮM CƠ HỘI!", '#2ecc71', 32); } 
-                    else { if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 28); engine.triggerShake(5, 5); } else { player.score -= obj.val; ui.addFloatingText("-" + obj.val + " SẬP BẪY!", '#e74c3c', 32); engine.triggerShake(15, 10); } }
+                    if (isGoodNow) { 
+                        let gained = (player.buffs.x2 > 0 ? obj.val * 2 : obj.val) * rushMult; player.score += gained; ui.addFloatingText("+" + gained + " NẮM CƠ HỘI!", '#2ecc71', 32); 
+                        audio.play('coin', 0.5); 
+                    } else { 
+                        if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 28); engine.triggerShake(5, 5); audio.play('buff', 0.5); } 
+                        else { player.score -= obj.val; ui.addFloatingText("-" + obj.val + " SẬP BẪY!", '#e74c3c', 32); engine.triggerShake(15, 10); audio.play('error', 0.6); } 
+                    }
                 } else if (obj.type === 'buff') {
+                    audio.play('buff', 0.7); // PHÁT TIẾNG LƯỢM BUFF
                     if (obj.buffType === 'x2') player.buffs.x2 = 6000; else if (obj.buffType === 'shield') player.buffs.shield = 6000; else if (obj.buffType === 'magnet') player.buffs.magnet = 6000; else if (obj.buffType === 'dash') player.buffs.dash = 3000; 
                     ui.addFloatingText(obj.text, obj.color, 30);
                 } else if (obj.type === 'gate_special') {
-                    if (obj.isMul) { let flatBonus = ((Math.max(1, player.phase) * 50) * obj.multiplier) * rushMult; if (player.buffs.x2 > 0) flatBonus *= 2; player.score += flatBonus; ui.addFloatingText("+" + flatBonus + " ĐIỂM!", obj.color, 36); engine.triggerShake(10, 5); } 
-                    else { if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ BÊ BỐI!", '#3498db', 30); engine.triggerShake(5, 5); } else { player.score = Math.floor(player.score / obj.multiplier); ui.addFloatingText("CHIA " + obj.multiplier + " TÀI SẢN!", obj.color, 36); engine.triggerShake(20, 15); } }
+                    if (obj.isMul) { 
+                        let flatBonus = ((Math.max(1, player.phase) * 50) * obj.multiplier) * rushMult; if (player.buffs.x2 > 0) flatBonus *= 2; player.score += flatBonus; ui.addFloatingText("+" + flatBonus + " ĐIỂM!", obj.color, 36); engine.triggerShake(10, 5); 
+                        audio.play('rush', 0.5); 
+                    } else { 
+                        if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ BÊ BỐI!", '#3498db', 30); engine.triggerShake(5, 5); audio.play('buff', 0.5); } 
+                        else { player.score = Math.floor(player.score / obj.multiplier); ui.addFloatingText("CHIA " + obj.multiplier + " TÀI SẢN!", obj.color, 36); engine.triggerShake(20, 15); audio.play('error', 0.8); } 
+                    }
                 } else if (obj.type === 'trap' || obj.type === 'moving_trap' || obj.type === 'fakenews') { 
-                    if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 26); engine.triggerShake(5, 5); } else { player.score -= (player.phase * 50); ui.addFloatingText("Trừ điểm!", obj.color, 26); engine.triggerShake(15, 10); }
-                } else if (obj.type === 'wall') { player.isDead = true; }
+                    if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 26); engine.triggerShake(5, 5); audio.play('buff', 0.5); } 
+                    else { player.score -= (player.phase * 50); ui.addFloatingText("Trừ điểm!", obj.color, 26); engine.triggerShake(15, 10); audio.play('hit', 0.7); }
+                } else if (obj.type === 'wall') { 
+                    player.isDead = true; 
+                    audio.play('hit', 0.9); // PHÁT TIẾNG TÔNG TƯỜNG
+                }
                 
                 this.objects.splice(i, 1); i--; continue;
             }
@@ -179,7 +203,6 @@ export class ObjectManager {
     draw(ctx, env, frameCount) {
         let isNight = env.timeCycle >= 0.5;
         for (let obj of this.objects) {
-            
             let pX = 0;
             if (obj.type === 'decor') pX = obj.x;
             else if (obj.type === 'crack') pX = CONFIG.lanes[Math.floor((obj.lanes[0] + obj.lanes[obj.lanes.length-1])/2)]; 
@@ -208,11 +231,15 @@ export class ObjectManager {
                 if (obj.isFloating) { let pShadow = Utils.project(pX, 0, obj.z); if(pShadow) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(pShadow.x, pShadow.y, 25*pShadow.scale, 8*pShadow.scale, 0, 0, Math.PI*2); ctx.fill(); } }
                 if (obj.type === 'letter') { let w = 35 * s; ctx.fillStyle = 'rgba(241, 196, 15, 0.4)'; ctx.beginPath(); ctx.arc(p.x, p.y - w, w, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3*s; ctx.stroke(); ctx.fillStyle = '#fff'; ctx.font = `bold ${30*s}px Arial`; ctx.textAlign="center"; ctx.fillText(obj.letter, p.x, p.y - w + 10*s); }
                 else if (obj.type === 'buff') { let w = 40 * s; let buffGrad = ctx.createRadialGradient(p.x, p.y - w, 0, p.x, p.y - w, w); buffGrad.addColorStop(0, '#fff'); buffGrad.addColorStop(1, obj.color); ctx.shadowBlur = 15 * s; ctx.shadowColor = obj.color; if (obj.buffType === 'magnet') { ctx.strokeStyle = buffGrad; ctx.lineWidth = 15*s; ctx.beginPath(); ctx.arc(p.x, p.y - w, w*0.6, 0, Math.PI); ctx.stroke(); ctx.fillStyle = '#e74c3c'; ctx.fillRect(p.x - w*0.6 - 7.5*s, p.y - w - 10*s, 15*s, 10*s); ctx.fillRect(p.x + w*0.6 - 7.5*s, p.y - w - 10*s, 15*s, 10*s); } else if (obj.buffType === 'dash') { ctx.fillStyle = buffGrad; ctx.beginPath(); ctx.moveTo(p.x, p.y - w*2); ctx.lineTo(p.x+w*0.5, p.y-w); ctx.lineTo(p.x, p.y); ctx.lineTo(p.x-w*0.5, p.y-w); ctx.fill(); } else { ctx.fillStyle = buffGrad; ctx.beginPath(); ctx.ellipse(p.x, p.y - w, w, w*0.6, 0, 0, Math.PI*2); ctx.fill(); } ctx.shadowBlur = 0; ctx.fillStyle = 'white'; ctx.font = `bold ${Math.max(10, 14*s)}px Arial`; ctx.textAlign="center"; ctx.fillText(obj.buffType.toUpperCase(), p.x, p.y - w + 5*s); }
-                else if (obj.type === 'gate' || obj.type === 'gate_special' || obj.type === 'blinking_gate') { let w = 95 * s; let h = 180 * s; let color = obj.color; let text = obj.text; let sub = obj.sub || ""; if (obj.type === 'blinking_gate') { let isGoodNow = Math.floor(obj.timer / 25) % 2 === 0; color = isGoodNow ? '#2ecc71' : '#e74c3c'; text = isGoodNow ? "+? CƠ HỘI" : "-? CẠM BẪY"; ctx.shadowBlur = 20 * s; ctx.shadowColor = color; } let glassGrad = ctx.createLinearGradient(p.x - w/2, p.y - h, p.x + w/2, p.y); glassGrad.addColorStop(0, color.replace('rgb', 'rgba').replace(')', ', 0.5)')); glassGrad.addColorStop(1, 'rgba(255,255,255,0.05)'); ctx.fillStyle = glassGrad; ctx.fillRect(p.x - w/2, p.y - h, w, h); ctx.strokeStyle = color; ctx.lineWidth = (obj.type === 'gate_special' ? 12 : 8) * s; ctx.strokeRect(p.x - w/2, p.y - h, w, h); ctx.shadowBlur = 0; ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(p.x - w/2, p.y - h - (45 * s), w, 45 * s, 5*s); ctx.fill(); ctx.fillStyle = 'white'; ctx.textAlign = "center"; ctx.font = `bold ${Math.max(10, (obj.type === 'gate_special' ? 20 : 16) * s)}px Arial`; if (obj.type === 'gate_special') { let opSymbol = obj.isMul ? 'x' : '/'; ctx.fillText(`${opSymbol}${obj.multiplier}`, p.x, p.y - h - (20 * s)); ctx.font = `bold ${Math.max(6, 9 * s)}px Arial`; ctx.fillText(obj.text, p.x, p.y - h - (5 * s)); } else { ctx.fillText(text, p.x, p.y - h - (20 * s)); ctx.font = `bold ${Math.max(6, 9 * s)}px Arial`; ctx.fillText(sub, p.x, p.y - h - (5 * s)); } } 
+                else if (obj.type === 'gate' || obj.type === 'gate_special' || obj.type === 'blinking_gate') {
+                    let w = 95 * s; let h = 180 * s; let color = obj.color; let text = obj.text; let sub = obj.sub || "";
+                    if (obj.type === 'blinking_gate') { let isGoodNow = Math.floor(obj.timer / 25) % 2 === 0; color = isGoodNow ? '#2ecc71' : '#e74c3c'; text = isGoodNow ? "+? CƠ HỘI" : "-? CẠM BẪY"; ctx.shadowBlur = 20 * s; ctx.shadowColor = color; }
+                    let glassGrad = ctx.createLinearGradient(p.x - w/2, p.y - h, p.x + w/2, p.y); glassGrad.addColorStop(0, color.replace('rgb', 'rgba').replace(')', ', 0.5)')); glassGrad.addColorStop(1, 'rgba(255,255,255,0.05)'); ctx.fillStyle = glassGrad; ctx.fillRect(p.x - w/2, p.y - h, w, h); ctx.strokeStyle = color; ctx.lineWidth = (obj.type === 'gate_special' ? 12 : 8) * s; ctx.strokeRect(p.x - w/2, p.y - h, w, h); ctx.shadowBlur = 0; ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(p.x - w/2, p.y - h - (45 * s), w, 45 * s, 5*s); ctx.fill(); ctx.fillStyle = 'white'; ctx.textAlign = "center"; ctx.font = `bold ${Math.max(10, (obj.type === 'gate_special' ? 20 : 16) * s)}px Arial`; 
+                    if (obj.type === 'gate_special') { let opSymbol = obj.isMul ? 'x' : '/'; ctx.fillText(`${opSymbol}${obj.multiplier}`, p.x, p.y - h - (20 * s)); ctx.font = `bold ${Math.max(6, 9 * s)}px Arial`; ctx.fillText(obj.text, p.x, p.y - h - (5 * s)); } else { ctx.fillText(text, p.x, p.y - h - (20 * s)); ctx.font = `bold ${Math.max(6, 9 * s)}px Arial`; ctx.fillText(sub, p.x, p.y - h - (5 * s)); }
+                } 
                 else if (obj.type === 'wall') { let w = 110 * s; let h = 320 * s; ctx.fillStyle = obj.color; ctx.fillRect(p.x - w/2, p.y - h, w, h); ctx.strokeStyle = '#500000'; ctx.lineWidth = 2*s; for(let wy = p.y - h; wy < p.y; wy += 20*s) { ctx.beginPath(); ctx.moveTo(p.x - w/2, wy); ctx.lineTo(p.x + w/2, wy); ctx.stroke(); } ctx.strokeStyle = '#fff'; ctx.lineWidth = 10 * s; ctx.strokeRect(p.x - w/2, p.y - h, w, h); ctx.fillStyle = 'white'; ctx.font = `bold ${Math.max(10, 16 * s)}px Arial`; ctx.textAlign = "center"; ctx.fillText(obj.text, p.x, p.y - h/1.5); }
                 else if (obj.type === 'moving_trap') { let w = 45 * s; ctx.fillStyle = obj.color; ctx.shadowBlur = 15*s; ctx.shadowColor = obj.color; ctx.beginPath(); let rot = frameCount * 0.1; for(let i=0; i<10; i++) { let angle = (i * Math.PI * 2) / 10 + rot; let rad = (i % 2 === 0) ? w : w/2; ctx.lineTo(p.x + Math.cos(angle)*rad, p.y - w + Math.sin(angle)*rad); } ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = 'white'; ctx.font = `bold ${Math.max(10, 14*s)}px Arial`; ctx.textAlign="center"; ctx.fillText(obj.text, p.x, p.y - w*2.2); }
                 else if (obj.type === 'fakenews') { let size = 80 * s; let glitch = (Math.random() * 10 - 5) * s; ctx.fillStyle = obj.color; ctx.fillRect(p.x - size/2 + glitch, p.y - size - 20*s, size, size); ctx.fillStyle = '#00ffcc'; ctx.font = `bold ${Math.max(10, 16 * s)}px Arial`; ctx.textAlign = "center"; ctx.fillText("TIN GIẢ", p.x + glitch, p.y - size - 30*s); }
-                else if (obj.type === 'trap') { let w = 90 * s; let h = 30 * s; let trapGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, w); trapGrad.addColorStop(0, '#000'); trapGrad.addColorStop(1, 'rgba(20, 30, 40, 0)'); ctx.fillStyle = trapGrad; ctx.beginPath(); ctx.ellipse(p.x, p.y, w, h, 0, 0, Math.PI*2); ctx.fill(); }
             }
         }
     }

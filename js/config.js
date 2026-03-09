@@ -23,7 +23,9 @@ export const CONFIG = {
 };
 
 export const SETTINGS = {
-    screenShake: true 
+    screenShake: true,
+    bgmVolume: 0.5, // 0.0 đến 1.0 (Nhạc nền)
+    sfxVolume: 1.0  // 0.0 đến 1.0 (Hiệu ứng)
 };
 
 export const GAME_DATA = {
