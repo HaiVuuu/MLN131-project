@@ -22,6 +22,10 @@ export const CONFIG = {
     ]
 };
 
+export const SETTINGS = {
+    screenShake: true 
+};
+
 export const GAME_DATA = {
     gateContent: {
         1: { good: "Tự học", bad: "Lười biếng" },

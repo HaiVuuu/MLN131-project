@@ -86,7 +86,8 @@ export class ObjectManager {
         else this.pushObject({ type: 'gate', lane: lane, z: 4000, value: -gateVal, text: "-" + gateVal, sub: GAME_DATA.gateContent[phase].bad, color: '#e74c3c', isGood: false }, player);
     }
 
-    update(fpsMultiplier, player, ui, frameCount, speed) {
+    // ĐÃ THÊM THAM SỐ `engine` VÀO HÀM UPDATE ĐỂ GỌI RUNG
+    update(fpsMultiplier, player, ui, frameCount, speed, engine) {
         let isRush = player.rushHourTimer > 0; let rushMult = isRush ? 3 : 1; 
         let finalSpeed = speed * Math.max(player.buffs.dash > 0 ? 1.8 : 1, isRush ? 2.2 : 1);
 
@@ -124,71 +125,49 @@ export class ObjectManager {
 
             if (obj.type !== 'decor' && obj.z > 20 && obj.z < 80 && obj.lane === player.lane) {
                 
-                // THUẬT TOÁN NÉ CHƯỚNG NGẠI BẰNG CÁCH NHẢY QUA ĐẦU CHÚNG
                 let isDodged = false;
-
-                // Ngôi sao rất thấp, nhảy nhẹ (> 40) là qua
                 if (obj.type === 'moving_trap' && player.jumpY > 40) isDodged = true;
-                
-                // Cổng xấu (Cổng trừ điểm, cổng chia) có độ cao vừa, phải nhảy cao (> 140) mới qua được
-                let isBadGate = (obj.type === 'gate' && !obj.isGood) || 
-                                (obj.type === 'gate_special' && !obj.isMul) || 
-                                (obj.type === 'blinking_gate' && Math.floor(obj.timer / 25) % 2 !== 0);
+                let isBadGate = (obj.type === 'gate' && !obj.isGood) || (obj.type === 'gate_special' && !obj.isMul) || (obj.type === 'blinking_gate' && Math.floor(obj.timer / 25) % 2 !== 0);
                 if (isBadGate && player.jumpY > 140) isDodged = true;
-
-                // Tin giả nằm dưới đất, nhảy (> 100) là qua
                 if (obj.type === 'fakenews' && player.jumpY > 100) isDodged = true;
 
-                // Cổng tốt (Ăn điểm), Buff, Chữ: Nhảy quá cao (> 200) sẽ bị BAY XUYÊN QUA (Hụt mất)
-                let isGoodItem = (obj.type === 'gate' && obj.isGood) || 
-                                 (obj.type === 'gate_special' && obj.isMul) || 
-                                 (obj.type === 'buff') || (obj.type === 'letter');
-                if (isGoodItem && !obj.isFloating && player.jumpY > 200) {
-                    ui.addFloatingText("NHẢY QUÁ TRỚN!", '#95a5a6', 20);
-                    this.objects.splice(i, 1); i--; continue; // Xóa vật phẩm bị hụt
-                }
+                let isGoodItem = (obj.type === 'gate' && obj.isGood) || (obj.type === 'gate_special' && obj.isMul) || (obj.type === 'buff') || (obj.type === 'letter');
+                if (isGoodItem && !obj.isFloating && player.jumpY > 200) { ui.addFloatingText("NHẢY QUÁ TRỚN!", '#95a5a6', 20); this.objects.splice(i, 1); i--; continue; }
 
-                // CỔNG PHÁP LUẬT: KHÔNG THỂ NÉ DÙ BẠN CÓ NHẢY CAO ĐẾN ĐÂU (Nó chặn tới tận trời)
-                // (Không làm gì cả, isDodged vẫn = false)
+                if (isDodged && player.buffs.dash <= 0 && !isRush) { ui.addFloatingText("NÉ ĐẸP!", '#fff', 24); this.objects.splice(i, 1); i--; continue; }
 
-                // Nếu đã né thành công
-                if (isDodged && player.buffs.dash <= 0 && !isRush) {
-                    ui.addFloatingText("NÉ ĐẸP!", '#fff', 24);
-                    this.objects.splice(i, 1); i--; continue;
-                }
-
-                // LOGIC ĂN ĐỒ LƠ LỬNG
                 let isFloating = obj.isFloating || false;
-                if (isFloating && player.jumpY < 60 && player.buffs.dash <= 0 && !isRush) {
-                    continue; // Đi chui xuống dưới, không nhặt được
-                }
+                if (isFloating && player.jumpY < 60 && player.buffs.dash <= 0 && !isRush) { continue; }
 
                 if ((player.buffs.dash > 0 || isRush) && (obj.type === 'wall' || obj.type === 'trap' || obj.type === 'moving_trap' || obj.type === 'fakenews' || (obj.type === 'gate' && !obj.isGood) || (obj.type === 'gate_special' && !obj.isMul) || obj.type === 'blinking_gate')) {
-                    player.score += 150; ui.addFloatingText("PHÁ VỠ!", isRush ? '#ff4757' : '#00ffff', 30); this.objects.splice(i, 1); i--; continue;
+                    player.score += 150; ui.addFloatingText("PHÁ VỠ!", isRush ? '#ff4757' : '#00ffff', 30); 
+                    engine.triggerShake(10, 8); // RUNG NHẸ KHI ĐÂM NÁT CHƯỚNG NGẠI VẬT
+                    this.objects.splice(i, 1); i--; continue;
                 }
 
                 if (obj.type === 'letter') {
                     player.collectedLetters++; ui.addFloatingText(obj.letter, '#f1c40f', 40);
                     if (player.collectedLetters >= player.currentWord.length) {
                         player.rushHourTimer = player.currentWord.length * 2000; ui.addFloatingText("BÙNG CHÁY!", '#ff4757', 45); player.pickNextWord();
+                        engine.triggerShake(20, 12); // RUNG MẠNH KHI VÀO RUSH HOUR
                         this.objects.forEach(o => { if (o.type !== 'decor' && o.type !== 'buff' && o.type !== 'letter' && o.type !== 'crack') this.transformToGold(o, player); });
                     }
                 }
                 else if (obj.type === 'gate') {
                     if (obj.isGood) { let gained = (player.buffs.x2 > 0 ? obj.value * 2 : obj.value) * rushMult; player.score += gained; ui.addFloatingText("+" + gained, '#2ecc71', 28); } 
-                    else { if (player.buffs.shield > 0) ui.addFloatingText("BẢO VỆ!", '#3498db', 28); else { player.score += obj.value; ui.addFloatingText(obj.value, '#e74c3c', 28); } }
+                    else { if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 28); engine.triggerShake(5, 5); } else { player.score += obj.value; ui.addFloatingText(obj.value, '#e74c3c', 28); engine.triggerShake(15, 10); } }
                 } else if (obj.type === 'blinking_gate') {
                     let isGoodNow = Math.floor(obj.timer / 25) % 2 === 0;
                     if (isGoodNow) { let gained = (player.buffs.x2 > 0 ? obj.val * 2 : obj.val) * rushMult; player.score += gained; ui.addFloatingText("+" + gained + " NẮM CƠ HỘI!", '#2ecc71', 32); } 
-                    else { if (player.buffs.shield > 0) ui.addFloatingText("BẢO VỆ!", '#3498db', 28); else { player.score -= obj.val; ui.addFloatingText("-" + obj.val + " SẬP BẪY!", '#e74c3c', 32); } }
+                    else { if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 28); engine.triggerShake(5, 5); } else { player.score -= obj.val; ui.addFloatingText("-" + obj.val + " SẬP BẪY!", '#e74c3c', 32); engine.triggerShake(15, 10); } }
                 } else if (obj.type === 'buff') {
                     if (obj.buffType === 'x2') player.buffs.x2 = 6000; else if (obj.buffType === 'shield') player.buffs.shield = 6000; else if (obj.buffType === 'magnet') player.buffs.magnet = 6000; else if (obj.buffType === 'dash') player.buffs.dash = 3000; 
                     ui.addFloatingText(obj.text, obj.color, 30);
                 } else if (obj.type === 'gate_special') {
-                    if (obj.isMul) { let flatBonus = ((Math.max(1, player.phase) * 50) * obj.multiplier) * rushMult; if (player.buffs.x2 > 0) flatBonus *= 2; player.score += flatBonus; ui.addFloatingText("+" + flatBonus + " ĐIỂM!", obj.color, 36); } 
-                    else { if (player.buffs.shield > 0) ui.addFloatingText("BẢO VỆ BÊ BỐI!", '#3498db', 30); else { player.score = Math.floor(player.score / obj.multiplier); ui.addFloatingText("CHIA " + obj.multiplier + " TÀI SẢN!", obj.color, 36); } }
+                    if (obj.isMul) { let flatBonus = ((Math.max(1, player.phase) * 50) * obj.multiplier) * rushMult; if (player.buffs.x2 > 0) flatBonus *= 2; player.score += flatBonus; ui.addFloatingText("+" + flatBonus + " ĐIỂM!", obj.color, 36); engine.triggerShake(10, 5); } 
+                    else { if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ BÊ BỐI!", '#3498db', 30); engine.triggerShake(5, 5); } else { player.score = Math.floor(player.score / obj.multiplier); ui.addFloatingText("CHIA " + obj.multiplier + " TÀI SẢN!", obj.color, 36); engine.triggerShake(20, 15); } }
                 } else if (obj.type === 'trap' || obj.type === 'moving_trap' || obj.type === 'fakenews') { 
-                    if (player.buffs.shield > 0) ui.addFloatingText("BẢO VỆ!", '#3498db', 26); else { player.score -= (player.phase * 50); ui.addFloatingText("Trừ điểm!", obj.color, 26); }
+                    if (player.buffs.shield > 0) { ui.addFloatingText("BẢO VỆ!", '#3498db', 26); engine.triggerShake(5, 5); } else { player.score -= (player.phase * 50); ui.addFloatingText("Trừ điểm!", obj.color, 26); engine.triggerShake(15, 10); }
                 } else if (obj.type === 'wall') { player.isDead = true; }
                 
                 this.objects.splice(i, 1); i--; continue;
@@ -211,38 +190,13 @@ export class ObjectManager {
             if (!p) continue;
             let s = p.scale; ctx.shadowBlur = 0; 
             
-            // VẼ HỐ GÀ (POTHOLES) HỮU CƠ, LỞM CHỞM
             if (obj.type === 'crack') {
-                let minLane = Math.min(...obj.lanes);
-                let maxLane = Math.max(...obj.lanes);
-                let holeWidth = (maxLane - minLane) * 100 + 80;
-                let w = holeWidth * s; let h = 60 * s; 
-
-                // Viền ngoài (mép đường nứt)
-                ctx.fillStyle = isNight ? '#222' : '#555';
-                ctx.beginPath(); ctx.ellipse(p.x, p.y, w/2 + 5*s, h/2 + 5*s, 0, 0, Math.PI*2); ctx.fill();
-
-                // Lòng hố (Gradient sâu thẳm)
-                let holeGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, w/2);
-                holeGrad.addColorStop(0, '#000'); 
-                holeGrad.addColorStop(0.7, '#111');
-                holeGrad.addColorStop(1, isNight ? '#222' : '#333');
-                ctx.fillStyle = holeGrad;
-
-                // Xếp chồng 3 hình oval lệch nhau để tạo viền lởm chởm tự nhiên
-                ctx.beginPath();
-                ctx.ellipse(p.x - 10*s, p.y + 2*s, (w/2)*0.9, (h/2)*1.1, 0.1, 0, Math.PI*2);
-                ctx.ellipse(p.x + 15*s, p.y - 3*s, (w/2)*0.8, (h/2)*0.9, -0.2, 0, Math.PI*2);
-                ctx.ellipse(p.x, p.y, w/2, h/2, 0, 0, Math.PI*2);
-                ctx.fill();
-
-                // Nét gạch nứt tủa ra
-                ctx.strokeStyle = isNight ? '#111' : '#333'; ctx.lineWidth = 2*s;
-                ctx.beginPath();
-                ctx.moveTo(p.x - w/2, p.y); ctx.lineTo(p.x - w/2 - 25*s, p.y - 10*s);
-                ctx.moveTo(p.x + w/2, p.y); ctx.lineTo(p.x + w/2 + 20*s, p.y + 5*s);
-                ctx.moveTo(p.x, p.y - h/2); ctx.lineTo(p.x - 15*s, p.y - h/2 - 20*s);
-                ctx.stroke();
+                let minLane = Math.min(...obj.lanes); let maxLane = Math.max(...obj.lanes);
+                let holeWidth = (maxLane - minLane) * 100 + 80; let w = holeWidth * s; let h = 60 * s; 
+                ctx.fillStyle = isNight ? '#222' : '#555'; ctx.beginPath(); ctx.ellipse(p.x, p.y, w/2 + 5*s, h/2 + 5*s, 0, 0, Math.PI*2); ctx.fill();
+                let holeGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, w/2); holeGrad.addColorStop(0, '#000'); holeGrad.addColorStop(0.7, '#111'); holeGrad.addColorStop(1, isNight ? '#222' : '#333'); ctx.fillStyle = holeGrad;
+                ctx.beginPath(); ctx.ellipse(p.x - 10*s, p.y + 2*s, (w/2)*0.9, (h/2)*1.1, 0.1, 0, Math.PI*2); ctx.ellipse(p.x + 15*s, p.y - 3*s, (w/2)*0.8, (h/2)*0.9, -0.2, 0, Math.PI*2); ctx.ellipse(p.x, p.y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = isNight ? '#111' : '#333'; ctx.lineWidth = 2*s; ctx.beginPath(); ctx.moveTo(p.x - w/2, p.y); ctx.lineTo(p.x - w/2 - 25*s, p.y - 10*s); ctx.moveTo(p.x + w/2, p.y); ctx.lineTo(p.x + w/2 + 20*s, p.y + 5*s); ctx.moveTo(p.x, p.y - h/2); ctx.lineTo(p.x - 15*s, p.y - h/2 - 20*s); ctx.stroke();
             }
             else if (obj.type === 'decor') {
                 if (obj.decor === 'tree') { let w = 120 * s; let h = 250 * s; ctx.fillStyle = isNight ? '#050a05' : '#2d140e'; ctx.fillRect(p.x - w/6, p.y - h/4, w/3, h/4); ctx.fillStyle = isNight ? '#0a1f0d' : '#1e4d22'; ctx.beginPath(); ctx.moveTo(p.x, p.y - h); ctx.lineTo(p.x - w/2, p.y - h/4); ctx.lineTo(p.x + w/2, p.y - h/4); ctx.fill(); }
@@ -251,29 +205,14 @@ export class ObjectManager {
                 else if (obj.decor === 'npc') { ctx.fillStyle = isNight ? '#2a1f10' : '#f1c27d'; ctx.beginPath(); ctx.arc(p.x, p.y - 45*s, 12*s, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = isNight ? '#0a0a0a' : obj.color; ctx.fillRect(p.x - 10*s, p.y - 33*s, 20*s, 24*s); ctx.fillStyle = '#000'; ctx.fillRect(p.x - 8*s, p.y - 9*s, 6*s, 10*s); ctx.fillRect(p.x + 2*s, p.y - 9*s, 6*s, 10*s); }
             }
             else {
-                if (obj.isFloating) {
-                    let pShadow = Utils.project(pX, 0, obj.z);
-                    if(pShadow) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(pShadow.x, pShadow.y, 25*pShadow.scale, 8*pShadow.scale, 0, 0, Math.PI*2); ctx.fill(); }
-                }
-
+                if (obj.isFloating) { let pShadow = Utils.project(pX, 0, obj.z); if(pShadow) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(pShadow.x, pShadow.y, 25*pShadow.scale, 8*pShadow.scale, 0, 0, Math.PI*2); ctx.fill(); } }
                 if (obj.type === 'letter') { let w = 35 * s; ctx.fillStyle = 'rgba(241, 196, 15, 0.4)'; ctx.beginPath(); ctx.arc(p.x, p.y - w, w, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3*s; ctx.stroke(); ctx.fillStyle = '#fff'; ctx.font = `bold ${30*s}px Arial`; ctx.textAlign="center"; ctx.fillText(obj.letter, p.x, p.y - w + 10*s); }
                 else if (obj.type === 'buff') { let w = 40 * s; let buffGrad = ctx.createRadialGradient(p.x, p.y - w, 0, p.x, p.y - w, w); buffGrad.addColorStop(0, '#fff'); buffGrad.addColorStop(1, obj.color); ctx.shadowBlur = 15 * s; ctx.shadowColor = obj.color; if (obj.buffType === 'magnet') { ctx.strokeStyle = buffGrad; ctx.lineWidth = 15*s; ctx.beginPath(); ctx.arc(p.x, p.y - w, w*0.6, 0, Math.PI); ctx.stroke(); ctx.fillStyle = '#e74c3c'; ctx.fillRect(p.x - w*0.6 - 7.5*s, p.y - w - 10*s, 15*s, 10*s); ctx.fillRect(p.x + w*0.6 - 7.5*s, p.y - w - 10*s, 15*s, 10*s); } else if (obj.buffType === 'dash') { ctx.fillStyle = buffGrad; ctx.beginPath(); ctx.moveTo(p.x, p.y - w*2); ctx.lineTo(p.x+w*0.5, p.y-w); ctx.lineTo(p.x, p.y); ctx.lineTo(p.x-w*0.5, p.y-w); ctx.fill(); } else { ctx.fillStyle = buffGrad; ctx.beginPath(); ctx.ellipse(p.x, p.y - w, w, w*0.6, 0, 0, Math.PI*2); ctx.fill(); } ctx.shadowBlur = 0; ctx.fillStyle = 'white'; ctx.font = `bold ${Math.max(10, 14*s)}px Arial`; ctx.textAlign="center"; ctx.fillText(obj.buffType.toUpperCase(), p.x, p.y - w + 5*s); }
-                else if (obj.type === 'gate' || obj.type === 'gate_special' || obj.type === 'blinking_gate') {
-                    let w = 95 * s; let h = 180 * s; let color = obj.color; let text = obj.text; let sub = obj.sub || "";
-                    if (obj.type === 'blinking_gate') { let isGoodNow = Math.floor(obj.timer / 25) % 2 === 0; color = isGoodNow ? '#2ecc71' : '#e74c3c'; text = isGoodNow ? "+? CƠ HỘI" : "-? CẠM BẪY"; ctx.shadowBlur = 20 * s; ctx.shadowColor = color; }
-                    let glassGrad = ctx.createLinearGradient(p.x - w/2, p.y - h, p.x + w/2, p.y); glassGrad.addColorStop(0, color.replace('rgb', 'rgba').replace(')', ', 0.5)')); glassGrad.addColorStop(1, 'rgba(255,255,255,0.05)'); ctx.fillStyle = glassGrad; ctx.fillRect(p.x - w/2, p.y - h, w, h); ctx.strokeStyle = color; ctx.lineWidth = (obj.type === 'gate_special' ? 12 : 8) * s; ctx.strokeRect(p.x - w/2, p.y - h, w, h); ctx.shadowBlur = 0; ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(p.x - w/2, p.y - h - (45 * s), w, 45 * s, 5*s); ctx.fill(); ctx.fillStyle = 'white'; ctx.textAlign = "center"; ctx.font = `bold ${Math.max(10, (obj.type === 'gate_special' ? 20 : 16) * s)}px Arial`; 
-                    if (obj.type === 'gate_special') { let opSymbol = obj.isMul ? 'x' : '/'; ctx.fillText(`${opSymbol}${obj.multiplier}`, p.x, p.y - h - (20 * s)); ctx.font = `bold ${Math.max(6, 9 * s)}px Arial`; ctx.fillText(obj.text, p.x, p.y - h - (5 * s)); } else { ctx.fillText(text, p.x, p.y - h - (20 * s)); ctx.font = `bold ${Math.max(6, 9 * s)}px Arial`; ctx.fillText(sub, p.x, p.y - h - (5 * s)); }
-                } 
-                else if (obj.type === 'wall') { 
-                    // TƯỜNG ĐƯỢC XÂY CAO LÊN 320px (Cao gấp đôi cổng thường)
-                    let w = 110 * s; let h = 320 * s; 
-                    ctx.fillStyle = obj.color; ctx.fillRect(p.x - w/2, p.y - h, w, h); ctx.strokeStyle = '#500000'; ctx.lineWidth = 2*s; 
-                    for(let wy = p.y - h; wy < p.y; wy += 20*s) { ctx.beginPath(); ctx.moveTo(p.x - w/2, wy); ctx.lineTo(p.x + w/2, wy); ctx.stroke(); } 
-                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 10 * s; ctx.strokeRect(p.x - w/2, p.y - h, w, h); 
-                    ctx.fillStyle = 'white'; ctx.font = `bold ${Math.max(10, 16 * s)}px Arial`; ctx.textAlign = "center"; ctx.fillText(obj.text, p.x, p.y - h/1.5); 
-                }
+                else if (obj.type === 'gate' || obj.type === 'gate_special' || obj.type === 'blinking_gate') { let w = 95 * s; let h = 180 * s; let color = obj.color; let text = obj.text; let sub = obj.sub || ""; if (obj.type === 'blinking_gate') { let isGoodNow = Math.floor(obj.timer / 25) % 2 === 0; color = isGoodNow ? '#2ecc71' : '#e74c3c'; text = isGoodNow ? "+? CƠ HỘI" : "-? CẠM BẪY"; ctx.shadowBlur = 20 * s; ctx.shadowColor = color; } let glassGrad = ctx.createLinearGradient(p.x - w/2, p.y - h, p.x + w/2, p.y); glassGrad.addColorStop(0, color.replace('rgb', 'rgba').replace(')', ', 0.5)')); glassGrad.addColorStop(1, 'rgba(255,255,255,0.05)'); ctx.fillStyle = glassGrad; ctx.fillRect(p.x - w/2, p.y - h, w, h); ctx.strokeStyle = color; ctx.lineWidth = (obj.type === 'gate_special' ? 12 : 8) * s; ctx.strokeRect(p.x - w/2, p.y - h, w, h); ctx.shadowBlur = 0; ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(p.x - w/2, p.y - h - (45 * s), w, 45 * s, 5*s); ctx.fill(); ctx.fillStyle = 'white'; ctx.textAlign = "center"; ctx.font = `bold ${Math.max(10, (obj.type === 'gate_special' ? 20 : 16) * s)}px Arial`; if (obj.type === 'gate_special') { let opSymbol = obj.isMul ? 'x' : '/'; ctx.fillText(`${opSymbol}${obj.multiplier}`, p.x, p.y - h - (20 * s)); ctx.font = `bold ${Math.max(6, 9 * s)}px Arial`; ctx.fillText(obj.text, p.x, p.y - h - (5 * s)); } else { ctx.fillText(text, p.x, p.y - h - (20 * s)); ctx.font = `bold ${Math.max(6, 9 * s)}px Arial`; ctx.fillText(sub, p.x, p.y - h - (5 * s)); } } 
+                else if (obj.type === 'wall') { let w = 110 * s; let h = 320 * s; ctx.fillStyle = obj.color; ctx.fillRect(p.x - w/2, p.y - h, w, h); ctx.strokeStyle = '#500000'; ctx.lineWidth = 2*s; for(let wy = p.y - h; wy < p.y; wy += 20*s) { ctx.beginPath(); ctx.moveTo(p.x - w/2, wy); ctx.lineTo(p.x + w/2, wy); ctx.stroke(); } ctx.strokeStyle = '#fff'; ctx.lineWidth = 10 * s; ctx.strokeRect(p.x - w/2, p.y - h, w, h); ctx.fillStyle = 'white'; ctx.font = `bold ${Math.max(10, 16 * s)}px Arial`; ctx.textAlign = "center"; ctx.fillText(obj.text, p.x, p.y - h/1.5); }
                 else if (obj.type === 'moving_trap') { let w = 45 * s; ctx.fillStyle = obj.color; ctx.shadowBlur = 15*s; ctx.shadowColor = obj.color; ctx.beginPath(); let rot = frameCount * 0.1; for(let i=0; i<10; i++) { let angle = (i * Math.PI * 2) / 10 + rot; let rad = (i % 2 === 0) ? w : w/2; ctx.lineTo(p.x + Math.cos(angle)*rad, p.y - w + Math.sin(angle)*rad); } ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = 'white'; ctx.font = `bold ${Math.max(10, 14*s)}px Arial`; ctx.textAlign="center"; ctx.fillText(obj.text, p.x, p.y - w*2.2); }
                 else if (obj.type === 'fakenews') { let size = 80 * s; let glitch = (Math.random() * 10 - 5) * s; ctx.fillStyle = obj.color; ctx.fillRect(p.x - size/2 + glitch, p.y - size - 20*s, size, size); ctx.fillStyle = '#00ffcc'; ctx.font = `bold ${Math.max(10, 16 * s)}px Arial`; ctx.textAlign = "center"; ctx.fillText("TIN GIẢ", p.x + glitch, p.y - size - 30*s); }
+                else if (obj.type === 'trap') { let w = 90 * s; let h = 30 * s; let trapGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, w); trapGrad.addColorStop(0, '#000'); trapGrad.addColorStop(1, 'rgba(20, 30, 40, 0)'); ctx.fillStyle = trapGrad; ctx.beginPath(); ctx.ellipse(p.x, p.y, w, h, 0, 0, Math.PI*2); ctx.fill(); }
             }
         }
     }
